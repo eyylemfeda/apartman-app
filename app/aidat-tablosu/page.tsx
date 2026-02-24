@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { getSupabase } from "../../lib/supabase";
 
 export const dynamic = 'force-dynamic';
 export default function AidatTablosu() {
@@ -17,10 +17,13 @@ export default function AidatTablosu() {
   useEffect(() => { verileriGetir(); }, []);
 
   async function verileriGetir() {
-    setYukleniyor(true);
-    const { data: dData } = await supabase.from('daireler').select('*').order('daire_no');
-    const { data: aData } = await supabase.from('aidat_ayarlari').select('*').order('baslangic_tarihi', { ascending: false }).limit(1);
-    const { data: tData } = await supabase.from('tahsilatlar').select('*').eq('yil', suAnkiYil);
+  setYukleniyor(true);
+
+  const supabase = getSupabase();
+
+  const { data: dData } = await supabase.from('daireler').select('*').order('daire_no');
+  const { data: aData } = await supabase.from('aidat_ayarlari').select('*').order('baslangic_tarihi', { ascending: false }).limit(1);
+  const { data: tData } = await supabase.from('tahsilatlar').select('*').eq('yil', suAnkiYil);
 
     if (dData) setDaireler(dData);
     if (aData && aData[0]) setGuncelAidat(Number(aData[0].tutar));
