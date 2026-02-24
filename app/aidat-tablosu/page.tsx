@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
+export const dynamic = 'force-dynamic';
 export default function AidatTablosu() {
   const [daireler, setDaireler] = useState<any[]>([]);
   const [tahsilatlar, setTahsilatlar] = useState<any[]>([]);
