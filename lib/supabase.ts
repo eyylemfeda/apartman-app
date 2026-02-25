@@ -1,10 +1,10 @@
 // lib/supabase.ts
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
-let supabase: SupabaseClient | null = null;
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
-export function getSupabase(): SupabaseClient | null {
-  if (supabase) return supabase;
+export function getSupabase() {
+  if (supabaseInstance) return supabaseInstance;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -14,6 +14,9 @@ export function getSupabase(): SupabaseClient | null {
     return null;
   }
 
-  supabase = createClient(url, key);
-  return supabase;
+  supabaseInstance = createClient(url, key);
+  return supabaseInstance;
 }
+
+// ✅ GERİYE UYUMLULUK: eski sayfalar import { supabase } kullanmaya devam etsin
+export const supabase = getSupabase();
