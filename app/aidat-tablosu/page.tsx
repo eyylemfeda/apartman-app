@@ -1,14 +1,17 @@
-'use client'
+'use client';
+
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getSupabase } from "../../lib/supabase";
 
 export const dynamic = 'force-dynamic';
+
 export default function AidatTablosu() {
   const [daireler, setDaireler] = useState<any[]>([]);
   const [tahsilatlar, setTahsilatlar] = useState<any[]>([]);
   const [guncelAidat, setGuncelAidat] = useState(0);
   const [yukleniyor, setYukleniyor] = useState(true);
+  const [hata, setHata] = useState<string | null>(null);
 
   const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
   const suAnkiYil = 2026;
@@ -17,24 +20,59 @@ export default function AidatTablosu() {
   useEffect(() => { verileriGetir(); }, []);
 
   async function verileriGetir() {
-  setYukleniyor(true);
+    setYukleniyor(true);
+    setHata(null);
 
-  const supabase = getSupabase();
+    const supabase = getSupabase();
+    if (!supabase) {
+      setHata("Supabase ayarları bulunamadı. Deploy panelinde NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY kontrol et.");
+      setYukleniyor(false);
+      return;
+    }
 
-  const { data: dData } = await supabase.from('daireler').select('*').order('daire_no');
-  const { data: aData } = await supabase.from('aidat_ayarlari').select('*').order('baslangic_tarihi', { ascending: false }).limit(1);
-  const { data: tData } = await supabase.from('tahsilatlar').select('*').eq('yil', suAnkiYil);
+    try {
+      const { data: dData, error: dErr } = await supabase
+        .from('daireler')
+        .select('*')
+        .order('daire_no');
 
-    if (dData) setDaireler(dData);
-    if (aData && aData[0]) setGuncelAidat(Number(aData[0].tutar));
-    if (tData) setTahsilatlar(tData);
-    setYukleniyor(false);
+      const { data: aData, error: aErr } = await supabase
+        .from('aidat_ayarlari')
+        .select('*')
+        .order('baslangic_tarihi', { ascending: false })
+        .limit(1);
+
+      const { data: tData, error: tErr } = await supabase
+        .from('tahsilatlar')
+        .select('*')
+        .eq('yil', suAnkiYil);
+
+      if (dErr || aErr || tErr) {
+        setHata(
+          (dErr?.message || aErr?.message || tErr?.message || "Veri alınırken hata oluştu.")
+        );
+        return;
+      }
+
+      if (dData) setDaireler(dData);
+      const tutar = Number((aData as any)?.[0]?.tutar ?? 0);
+      setGuncelAidat(tutar);
+      if (tData) setTahsilatlar(tData);
+    } catch (e: any) {
+      setHata(e?.message || "Beklenmeyen bir hata oluştu.");
+    } finally {
+      setYukleniyor(false);
+    }
   }
 
   const getHucreDurumu = (daire: any, ayIdx: number) => {
     if (daire.muaf_mi) return "bg-slate-100 text-slate-400";
+
     const ay = ayIdx + 1;
-    const toplamOdenen = tahsilatlar.filter(t => t.daire_no === daire.daire_no).reduce((sum, curr) => sum + Number(curr.tutar), 0);
+    const toplamOdenen = tahsilatlar
+      .filter(t => t.daire_no === daire.daire_no)
+      .reduce((sum, curr) => sum + Number(curr.tutar), 0);
+
     const buAyaKadarGereken = ay * guncelAidat;
     const birOncekiAyaKadarGereken = (ay - 1) * guncelAidat;
     const isGelecekAy = ayIdx > suAnkiAyIdx;
@@ -44,16 +82,41 @@ export default function AidatTablosu() {
     return isGelecekAy ? "bg-amber-100 text-amber-700" : "bg-red-500 text-white font-bold";
   };
 
-  if (yukleniyor) return <div className="p-10 text-center font-bold text-slate-400 animate-pulse">VERİLER YÜKLENİYOR...</div>;
+  if (yukleniyor) {
+    return (
+      <div className="p-10 text-center font-bold text-slate-400 animate-pulse">
+        VERİLER YÜKLENİYOR...
+      </div>
+    );
+  }
+
+  if (hata) {
+    return (
+      <div className="p-6 max-w-md mx-auto">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm font-semibold">
+          {hata}
+        </div>
+        <button
+          onClick={verileriGetir}
+          className="mt-4 w-full bg-slate-900 text-white rounded-xl py-3 font-bold"
+        >
+          Tekrar Dene
+        </button>
+        <Link href="/" className="block mt-3 text-center text-slate-500 underline">
+          Ana sayfaya dön
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <main className="max-w-md mx-auto min-h-screen bg-slate-50 pb-32 shadow-2xl relative border-x border-slate-200 font-sans">
       {/* Şık Header */}
       <header className="sticky top-0 bg-white/90 backdrop-blur-md p-5 flex justify-between items-center z-40 border-b">
         <Link href="/" className="text-slate-400 p-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
-            </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+          </svg>
         </Link>
         <h1 className="text-[11px] font-black text-slate-800 tracking-[0.2em] uppercase italic">Aidat Çizelgesi</h1>
         <div className="w-10"></div>
@@ -67,7 +130,9 @@ export default function AidatTablosu() {
               <th className="p-3 border-r border-slate-700 sticky left-0 z-40 bg-slate-900">No</th>
               <th className="p-3 border-r border-slate-700 sticky left-[45px] z-40 bg-slate-900 text-left">Sakin</th>
               <th className="p-3 border-r border-slate-700 bg-orange-600">Devir</th>
-              {aylar.map(ay => <th key={ay} className="p-3 border-r border-slate-700">{ay.substring(0,3)}</th>)}
+              {aylar.map(ay => (
+                <th key={ay} className="p-3 border-r border-slate-700">{ay.substring(0, 3)}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -83,7 +148,10 @@ export default function AidatTablosu() {
                   {daire.devir_borcu_2025 || 0} ₺
                 </td>
                 {aylar.map((_, idx) => (
-                  <td key={idx} className={`p-3 border-r text-center whitespace-nowrap transition-colors ${getHucreDurumu(daire, idx)}`}>
+                  <td
+                    key={idx}
+                    className={`p-3 border-r text-center whitespace-nowrap transition-colors ${getHucreDurumu(daire, idx)}`}
+                  >
                     {daire.muaf_mi ? '—' : guncelAidat + ' ₺'}
                   </td>
                 ))}
